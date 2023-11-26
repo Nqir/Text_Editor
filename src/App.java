@@ -69,6 +69,7 @@ class TextEditorFrame extends JFrame {
         sidebarContainer.setPreferredSize(new Dimension(200, 200));
     
         sidebarContainer.add(folderLabel);
+
         panel.add(sidebarContainer, BorderLayout.EAST);
     }
     
@@ -80,7 +81,7 @@ class TextEditorFrame extends JFrame {
         text_area.setWrapStyleWord(true);
         text_area.setForeground(new Color(255, 255, 255));
     }
-    
+
     private void showFileMenu() {
         popupMenu.add(openFolderMenuItem);
         popupMenu.add(openFileMenuItem);
@@ -88,17 +89,14 @@ class TextEditorFrame extends JFrame {
         popupMenu.show(file_button, 0, file_button.getHeight());
     }
 
-    private void addEventListeners() {
-        file_button.addActionListener(event -> showFileMenu());
-        openFileMenuItem.addActionListener(event -> openFile());
-        openFolderMenuItem.addActionListener(event -> openFolder());
-    }
-
     private void openFile() {
+        fileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
         int result = fileChooser.showOpenDialog(this);
 
         if (result == JFileChooser.APPROVE_OPTION) {
             File selectedFile = fileChooser.getSelectedFile();
+            
+            System.out.println("OPENED FILE: ".concat(selectedFile.getName()));
 
             try(FileReader fileReader = new FileReader(selectedFile); 
                 BufferedReader bufferedReader = new BufferedReader(fileReader)) {
@@ -113,6 +111,7 @@ class TextEditorFrame extends JFrame {
                     text_area.setText(fileContents.toString());
             } catch (IOException e) {
                 e.printStackTrace();
+                System.err.println("Failed to open file: " + e.getMessage());
             }
         }
     }
@@ -141,8 +140,41 @@ class TextEditorFrame extends JFrame {
                 sidebarPanel.repaint();
 
                 folderLabel.setText(selectedFolder.getName());
+
+                fileList.addListSelectionListener(event -> handleFileSelection(fileList.getSelectedValue(), selectedFolder));
             }
         }
+    }
+
+    private void handleFileSelection(String file_name, File selectedFolder) {
+        if (selectedFolder != null) {
+            File selectedFile = new File(selectedFolder, file_name);
+            loadFileContent(selectedFile);
+        }
+    }
+
+    private void loadFileContent(File file) {
+        System.out.println("OPENED FILE: ".concat(file.getName()));
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+
+            StringBuilder content = new StringBuilder();
+            String line;
+            
+            while((line = reader.readLine()) != null) {
+                content.append(line).append('\n');
+            }
+
+            text_area.setText(content.toString());
+        } catch (IOException e) {
+            e.printStackTrace();
+            System.err.println("Failed to open file: " + e.getMessage());
+        }
+    }
+
+    private void addEventListeners() {
+        file_button.addActionListener(event -> showFileMenu());
+        openFileMenuItem.addActionListener(event -> openFile());
+        openFolderMenuItem.addActionListener(event -> openFolder());
     }
 }
 
