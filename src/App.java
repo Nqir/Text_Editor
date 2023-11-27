@@ -104,7 +104,6 @@ class TextEditorFrame extends JFrame {
         text_area.setWrapStyleWord(true);
         text_area.setForeground(new Color(255, 255, 255));
         text_area.setCaretColor(new Color(255, 255, 255));
-
         text_area.getDocument().addDocumentListener(new DocumentListener() {
             @Override
             public void insertUpdate(DocumentEvent e) {
@@ -123,14 +122,14 @@ class TextEditorFrame extends JFrame {
         });
     }
 
-    private void handleSaveButton(File selectedFile, String file_name) {
+    private void handleSaveButton(File file, String file_name) {
         save_button.addActionListener(new ActionListener() {
 
             @Override
             public void actionPerformed(ActionEvent e) {
                 if (isTextModified && isSaveButtonEnabled) {
                     try {
-                        saveContent(selectedFile, file_name);
+                        saveContent(file, file_name);
                         isTextModified = false;
                         isSaveButtonEnabled = false;
                     } catch(IOException err) {
@@ -147,8 +146,8 @@ class TextEditorFrame extends JFrame {
         popupMenu.show(file_button, 0, file_button.getHeight());
     }
 
-    private void openFolder() {
-        File folder = fileHandler.openFolder(this);
+    private void showOpenFolderDialog() {
+        File folder = fileHandler.openFolderDialog(this);
         JList<String> filesFromFolder = fileHandler.getFilesFromFolder(folder);
         
         sidebarPanel.removeAll();
@@ -162,6 +161,7 @@ class TextEditorFrame extends JFrame {
                     File file = fileHandler.openFileFromFolder(folder, filesFromFolder.getSelectedValue());
                     String content = fileHandler.getContent(file);
                     fileHandler.loadContent(file, content, text_area);
+                    handleSaveButton(file, content);
                 } catch (IOException err) {
                     System.err.println(err.getMessage());
                 }
@@ -170,41 +170,55 @@ class TextEditorFrame extends JFrame {
     }
 
 
-    private void openFile() {
-        File file = fileHandler.openFile(this);
+    private void showOpenFileDialog() {
+        File file = fileHandler.openFileDialog(this);
         if (file != null) {
             try {
                 String content = fileHandler.getContent(file);
                 fileHandler.loadContent(file, content, text_area);
-            } catch(IOException e) {
-                e.printStackTrace();
+                handleSaveButton(file, content);
+            } catch(IOException err) {
+                System.err.println(err.getMessage());
             }
         }
     }
 
-    private void saveContent(File selectedFile, String file_name) throws IOException {
-        try {
-            fileHandler.save(selectedFile, text_area.getText());
-        } catch (FileNotFoundException e) {
-            System.err.println(e.getMessage());
+    private void showSaveAsDialog(String content) {
+        if (isTextModified) {
+            try {
+                fileHandler.saveAsDialog(this, content);
+            } catch (IOException err) {
+                System.err.println(err.getMessage());
+            }
         }
     }
 
-    private void addEventListeners() {
-        file_button.addActionListener(event -> showFileMenu());
-        openFileMenuItem.addActionListener(event -> openFile());
-        openFolderMenuItem.addActionListener(event -> openFolder());
+    private void saveContent(File file, String file_name) throws IOException {
+        try {
+            fileHandler.save(file, text_area.getText());
+        } catch (FileNotFoundException err) {
+            System.err.println(err.getMessage());
+        }
     }
 
     private void handleTextChange() {
         isTextModified = true;
         isSaveButtonEnabled = true;
+        save_button.setEnabled(isSaveButtonEnabled);
     }
+
+    private void addEventListeners() {
+        file_button.addActionListener(event -> showFileMenu());
+        openFileMenuItem.addActionListener(event -> showOpenFileDialog());
+        openFolderMenuItem.addActionListener(event -> showOpenFolderDialog());
+        save_as_button.addActionListener(event -> showSaveAsDialog(text_area.getText()));
+    }
+
 }
 
 class FileHandler {
 
-    public File openFolder(Component component) {
+    public File openFolderDialog(Component component) {
         File folder = null;
         JFileChooser fileChooser = new JFileChooser();
         fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
@@ -254,22 +268,23 @@ class FileHandler {
         if (file.isDirectory()) {
             throw new IOException("SELECTED ITEM IS NOT A VALID FILE TO OPEN: " + file.getAbsolutePath());
         }
+
         return file;
     }
 
-    public File openFile(Component component) {
+    public File openFileDialog(Component component) {
 
         JFileChooser fileChooser = new JFileChooser();
         File selectedFile = null;
 
         fileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
 
-        System.out.println("CHOOSING FILE...");
+        System.out.println("SELECTING FILE...");
         int result = fileChooser.showOpenDialog(component);
 
         if (result == JFileChooser.APPROVE_OPTION) {
             selectedFile = fileChooser.getSelectedFile();
-            System.out.println("FILE " + selectedFile.getName() + " OPENED.");
+            System.out.println("FILE OPENED: " + selectedFile.getName());
         }
 
         return selectedFile;
@@ -302,13 +317,13 @@ class FileHandler {
         System.out.println("CONTENT LOADED: " + file.getAbsolutePath());
     }
 
-    public void save(File selectedFile, String content) throws IOException, FileNotFoundException {
-        if (selectedFile == null || !selectedFile.isFile()) {
-            throw new IOException("FILE FAILED TO SAVE: " + selectedFile.getAbsolutePath());
+    public void save(File file, String content) throws IOException, FileNotFoundException {
+        if (file == null || !file.isFile()) {
+            throw new IOException("FILE FAILED TO SAVE: " + file.getAbsolutePath());
         }
 
         try (
-            FileWriter fileWriter = new FileWriter(selectedFile);
+            FileWriter fileWriter = new FileWriter(file);
             BufferedWriter bufferedWriter = new BufferedWriter(fileWriter)
         ) {
 
@@ -319,10 +334,32 @@ class FileHandler {
                 bufferedWriter.newLine();
             }
 
-            System.out.println("FILE SAVED SUCCESSFULLY: " + selectedFile.getAbsolutePath());
+            System.out.println("FILE SAVED SUCCESSFULLY: " + file.getAbsolutePath());
         } catch (IOException e) {
             System.err.println(e.getMessage());
             throw e;
+        }
+    }
+
+    public void saveAsDialog(Component component, String content) throws IOException {
+        JFileChooser fileChooser = new JFileChooser();
+        int result = fileChooser.showSaveDialog(component);
+
+        if (result == JFileChooser.APPROVE_OPTION) {
+            File selectedFile = fileChooser.getSelectedFile();
+            
+            try (
+                FileWriter fileWriter = new FileWriter(selectedFile);
+                BufferedWriter bufferedWriter = new BufferedWriter(fileWriter)
+            ) {
+                if (selectedFile != null) {
+                    bufferedWriter.write(content);
+                    System.out.println("FILE SUCCESSFULLY SAVED AS: " + selectedFile.getName());
+                }
+            } catch(IOException err) {
+                System.err.println(err.getMessage());
+                throw err;
+            }
         }
     }
 }
