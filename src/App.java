@@ -4,6 +4,8 @@ import javax.swing.event.DocumentListener;
 import javax.swing.event.DocumentEvent;
 
 import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -45,16 +47,17 @@ class TextEditorFrame extends JFrame {
     private final JButton save_as_button = new JButton(LABEL.SAVE_AS.getLabel());
     private final JMenuItem openFolderMenuItem = new JMenuItem(LABEL.OPEN_FOLDER.getLabel());
     private final JMenuItem openFileMenuItem = new JMenuItem(LABEL.OPEN_FILE.getLabel());
-    
     private final JLabel folderLabel = new JLabel();
+    private boolean isSaveButtonEnabled = false;
+    private boolean isTextModified = false;
     
     public TextEditorFrame() {
         renderWindow();
         addComponentsToFrame();
         configureComponents();
         addEventListeners();
-        configureTextArea();
         configureSidebar();
+        configureTextArea();
 
         text_editor_title.setText("My Text Editor");
         text_editor_title.setHorizontalAlignment(JLabel.CENTER);
@@ -81,7 +84,7 @@ class TextEditorFrame extends JFrame {
     private void configureComponents() {
         file_button.setFocusPainted(false);
         save_button.setFocusPainted(false);
-        save_as_button.setFocusPainted(false);
+        save_button.setEnabled(false);
     }
 
     private void configureSidebar() {
@@ -101,6 +104,41 @@ class TextEditorFrame extends JFrame {
         text_area.setWrapStyleWord(true);
         text_area.setForeground(new Color(255, 255, 255));
         text_area.setCaretColor(new Color(255, 255, 255));
+
+        text_area.getDocument().addDocumentListener(new DocumentListener() {
+            @Override
+            public void insertUpdate(DocumentEvent e) {
+                handleTextChange();
+            }
+            
+            @Override
+            public void removeUpdate(DocumentEvent e) {
+                handleTextChange();
+            }
+
+            @Override
+            public void changedUpdate(DocumentEvent e) {
+                handleTextChange();
+            }
+        });
+    }
+
+    private void handleSaveButton(File selectedFile, String file_name) {
+        save_button.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (isTextModified && isSaveButtonEnabled) {
+                    try {
+                        saveContent(selectedFile, file_name);
+                        isTextModified = false;
+                        isSaveButtonEnabled = false;
+                    } catch(IOException err) {
+                        System.err.println(err.getMessage());
+                    }
+                }
+            }
+        });
     }
 
     private void showFileMenu() {
@@ -110,21 +148,45 @@ class TextEditorFrame extends JFrame {
     }
 
     private void openFolder() {
-        fileHandler.openFolder(this, sidebarPanel, text_area);
+        File folder = fileHandler.openFolder(this);
+        JList<String> filesFromFolder = fileHandler.getFilesFromFolder(folder);
+        
+        sidebarPanel.removeAll();
+        sidebarPanel.add(new JScrollPane(filesFromFolder));
+        sidebarPanel.revalidate();
+        sidebarPanel.repaint();
+
+        filesFromFolder.addListSelectionListener(event -> {
+            if (event.getValueIsAdjusting()) { 
+                try {
+                    File file = fileHandler.openFileFromFolder(folder, filesFromFolder.getSelectedValue());
+                    String content = fileHandler.getContent(file);
+                    fileHandler.loadContent(file, content, text_area);
+                } catch (IOException err) {
+                    System.err.println(err.getMessage());
+                }
+            }
+        });
     }
 
+
     private void openFile() {
-        File selectedFile = fileHandler.openFile(this);
-
-        if (selectedFile != null) {
-
+        File file = fileHandler.openFile(this);
+        if (file != null) {
             try {
-                String content = fileHandler.getContent(selectedFile);
-                fileHandler.loadContent(text_area, content, selectedFile.getAbsolutePath());
+                String content = fileHandler.getContent(file);
+                fileHandler.loadContent(file, content, text_area);
             } catch(IOException e) {
                 e.printStackTrace();
             }
+        }
+    }
 
+    private void saveContent(File selectedFile, String file_name) throws IOException {
+        try {
+            fileHandler.save(selectedFile, text_area.getText());
+        } catch (FileNotFoundException e) {
+            System.err.println(e.getMessage());
         }
     }
 
@@ -133,50 +195,66 @@ class TextEditorFrame extends JFrame {
         openFileMenuItem.addActionListener(event -> openFile());
         openFolderMenuItem.addActionListener(event -> openFolder());
     }
+
+    private void handleTextChange() {
+        isTextModified = true;
+        isSaveButtonEnabled = true;
+    }
 }
 
 class FileHandler {
 
-    public void openFolder(Component component, JPanel panel, JTextArea text_area) {
-
+    public File openFolder(Component component) {
+        File folder = null;
         JFileChooser fileChooser = new JFileChooser();
         fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
         int result = fileChooser.showOpenDialog(component);
 
         if (result == JFileChooser.APPROVE_OPTION) {
-            File selectedFolder = fileChooser.getSelectedFile();
+            folder = fileChooser.getSelectedFile();
+            return folder;
+        }
+        
+        return folder;
+    }
+
+    public JList<String> getFilesFromFolder(File selectedFolder) {
+        JList<String> fileList = null;
+
+        try {
+            if (selectedFolder == null) {
+                throw new FileNotFoundException("FOLDER NOT FOUND.");
+            }
+
             File[] files = selectedFolder.listFiles();
-            
+
             if (files != null) {
                 DefaultListModel<String> listModel = new DefaultListModel<>();
 
+               System.out.println("FOLDER OPENED: "); 
                 for (File file : files) {
                     listModel.addElement(file.getName());
+                    System.out.println("- " + file.getName());
                 }
 
-                JList<String> fileList = new JList<>(listModel);
+                fileList = new JList<>(listModel);
 
-                panel.removeAll();
-
-                panel.add(new JScrollPane(fileList));
-
-                panel.revalidate();
-                panel.repaint();
-
-                fileList.addListSelectionListener(event -> {
-                    if (!event.getValueIsAdjusting()) {
-                        try {
-                            openFileFromList(selectedFolder, fileList.getSelectedValue(), text_area);
-                        } catch (FileNotFoundException e) {
-                            System.err.println(e.getMessage());
-                        } catch (IOException e) {
-                            System.err.println(e.getMessage());
-                        }
-                    }
-                });
-
+                return fileList;
             }
+        } catch (FileNotFoundException err) {
+            System.err.println(err.getMessage());
         }
+
+        return fileList;
+    }
+
+    public File openFileFromFolder(File folder, String file_name) throws IOException {
+        File file = new File(folder, file_name);
+
+        if (file.isDirectory()) {
+            throw new IOException("SELECTED ITEM IS NOT A VALID FILE TO OPEN: " + file.getAbsolutePath());
+        }
+        return file;
     }
 
     public File openFile(Component component) {
@@ -196,29 +274,6 @@ class FileHandler {
 
         return selectedFile;
     }
-
-    private void openFileFromList(File selectedFolder, String file_name, JTextArea text_area) throws FileNotFoundException, IOException {
-
-        try {
-            File selectedFile = new File(selectedFolder, file_name);
-            String path = selectedFile.getAbsolutePath();
-
-            if (!selectedFile.exists()) {
-                throw new FileNotFoundException("FILE NOT FOUND: " + path);
-            }
-
-            if (selectedFile.isDirectory()) {
-                throw new IOException("SELECTED ITEM IS NOT VALID AS FILE: " + path);
-            }
-
-            String content = getContent(selectedFile);
-            loadContent(text_area, content, path);
-        } catch (FileNotFoundException e) {
-            System.err.println(e.getMessage());
-        } catch (IOException e) {
-            System.err.println(e.getMessage());
-        } 
-    } 
 
     public String getContent(File selectedFile) throws IOException {
 
@@ -242,9 +297,33 @@ class FileHandler {
         return content.toString();
     }
 
-    public void loadContent(JTextArea text_area, String content, String path) {
+    public void loadContent(File file, String content, JTextArea text_area) {
         text_area.setText(content);
-        System.out.println("CONTENT LOADED: " + path);
+        System.out.println("CONTENT LOADED: " + file.getAbsolutePath());
+    }
+
+    public void save(File selectedFile, String content) throws IOException, FileNotFoundException {
+        if (selectedFile == null || !selectedFile.isFile()) {
+            throw new IOException("FILE FAILED TO SAVE: " + selectedFile.getAbsolutePath());
+        }
+
+        try (
+            FileWriter fileWriter = new FileWriter(selectedFile);
+            BufferedWriter bufferedWriter = new BufferedWriter(fileWriter)
+        ) {
+
+            String[] lines = content.split("\n");
+
+            for (String line : lines) {
+                bufferedWriter.write(line);
+                bufferedWriter.newLine();
+            }
+
+            System.out.println("FILE SAVED SUCCESSFULLY: " + selectedFile.getAbsolutePath());
+        } catch (IOException e) {
+            System.err.println(e.getMessage());
+            throw e;
+        }
     }
 }
 
