@@ -1,20 +1,15 @@
 
 import javax.swing.*;
+import java.awt.*;
+import java.io.File;
 import javax.swing.event.DocumentListener;
 import javax.swing.event.DocumentEvent;
-
-import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.io.BufferedReader;
-import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.IOException;
-import java.io.BufferedWriter;
 
-class TextEditorFrame extends JFrame {
+public class App extends JFrame {
 
     private enum LABEL {
         SAVE("SAVE"),
@@ -33,7 +28,7 @@ class TextEditorFrame extends JFrame {
             return label;
         }
     }
-
+    private String TEXT_EDITOR_TITLE = "My Text Editor";
     private final JPanel panel = new JPanel();
     private final JToolBar toolbar = new JToolBar();
     private final JPopupMenu popupMenu = new JPopupMenu();
@@ -43,15 +38,15 @@ class TextEditorFrame extends JFrame {
     private final JTextArea text_area = new JTextArea();
     private final JLabel text_editor_title = new JLabel();
     private final JButton file_button = new JButton(LABEL.FILE.getLabel());
-    private final JButton save_button = new JButton(LABEL.SAVE.getLabel());
-    private final JButton save_as_button = new JButton(LABEL.SAVE_AS.getLabel());
+    private final JMenuItem save_button = new JMenuItem(LABEL.SAVE.getLabel());
+    private final JMenuItem save_as_button = new JMenuItem(LABEL.SAVE_AS.getLabel());
     private final JMenuItem openFolderMenuItem = new JMenuItem(LABEL.OPEN_FOLDER.getLabel());
     private final JMenuItem openFileMenuItem = new JMenuItem(LABEL.OPEN_FILE.getLabel());
     private final JLabel folderLabel = new JLabel();
     private boolean isSaveButtonEnabled = false;
     private boolean isTextModified = false;
     
-    public TextEditorFrame() {
+    public App() {
         renderWindow();
         addComponentsToFrame();
         configureComponents();
@@ -59,7 +54,7 @@ class TextEditorFrame extends JFrame {
         configureSidebar();
         configureTextArea();
 
-        text_editor_title.setText("My Text Editor");
+        text_editor_title.setText(TEXT_EDITOR_TITLE);
         text_editor_title.setHorizontalAlignment(JLabel.CENTER);
     }
     
@@ -77,8 +72,6 @@ class TextEditorFrame extends JFrame {
         panel.add(text_editor_title, BorderLayout.SOUTH);
         panel.add(new JScrollPane(text_area), BorderLayout.CENTER);
         toolbar.add(file_button);
-        toolbar.add(save_button);
-        toolbar.add(save_as_button);
     }
 
     private void configureComponents() {
@@ -124,7 +117,6 @@ class TextEditorFrame extends JFrame {
 
     private void handleSaveButton(File file, String file_name) {
         save_button.addActionListener(new ActionListener() {
-
             @Override
             public void actionPerformed(ActionEvent e) {
                 if (isTextModified && isSaveButtonEnabled) {
@@ -143,6 +135,8 @@ class TextEditorFrame extends JFrame {
     private void showFileMenu() {
         popupMenu.add(openFolderMenuItem);
         popupMenu.add(openFileMenuItem);
+        popupMenu.add(save_button);
+        popupMenu.add(save_as_button);
         popupMenu.show(file_button, 0, file_button.getHeight());
     }
 
@@ -155,13 +149,16 @@ class TextEditorFrame extends JFrame {
         sidebarPanel.revalidate();
         sidebarPanel.repaint();
 
+        folderLabel.setText(folder.getName());
+
         filesFromFolder.addListSelectionListener(event -> {
             if (event.getValueIsAdjusting()) { 
                 try {
                     File file = fileHandler.openFileFromFolder(folder, filesFromFolder.getSelectedValue());
                     String content = fileHandler.getContent(file);
-                    fileHandler.loadContent(file, content, text_area);
+                    loadContent(file, content);
                     handleSaveButton(file, content);
+                    folderLabel.setText(folder.getName() + " - " + file.getName());
                 } catch (IOException err) {
                     System.err.println(err.getMessage());
                 }
@@ -175,8 +172,9 @@ class TextEditorFrame extends JFrame {
         if (file != null) {
             try {
                 String content = fileHandler.getContent(file);
-                fileHandler.loadContent(file, content, text_area);
+                loadContent(file, content);
                 handleSaveButton(file, content);
+                folderLabel.setText(file.getParentFile().getName() + " - " + file.getName());
             } catch(IOException err) {
                 System.err.println(err.getMessage());
             }
@@ -201,6 +199,11 @@ class TextEditorFrame extends JFrame {
         }
     }
 
+    private void loadContent(File file, String content) {
+        text_area.setText(content);
+        System.out.println("CONTENT LOADED: " + file.getAbsolutePath());
+    }
+
     private void handleTextChange() {
         isTextModified = true;
         isSaveButtonEnabled = true;
@@ -214,161 +217,4 @@ class TextEditorFrame extends JFrame {
         save_as_button.addActionListener(event -> showSaveAsDialog(text_area.getText()));
     }
 
-}
-
-class FileHandler {
-
-    public File openFolderDialog(Component component) {
-        File folder = null;
-        JFileChooser fileChooser = new JFileChooser();
-        fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-        int result = fileChooser.showOpenDialog(component);
-
-        if (result == JFileChooser.APPROVE_OPTION) {
-            folder = fileChooser.getSelectedFile();
-            return folder;
-        }
-        
-        return folder;
-    }
-
-    public JList<String> getFilesFromFolder(File selectedFolder) {
-        JList<String> fileList = null;
-
-        try {
-            if (selectedFolder == null) {
-                throw new FileNotFoundException("FOLDER NOT FOUND.");
-            }
-
-            File[] files = selectedFolder.listFiles();
-
-            if (files != null) {
-                DefaultListModel<String> listModel = new DefaultListModel<>();
-
-               System.out.println("FOLDER OPENED: "); 
-                for (File file : files) {
-                    listModel.addElement(file.getName());
-                    System.out.println("- " + file.getName());
-                }
-
-                fileList = new JList<>(listModel);
-
-                return fileList;
-            }
-        } catch (FileNotFoundException err) {
-            System.err.println(err.getMessage());
-        }
-
-        return fileList;
-    }
-
-    public File openFileFromFolder(File folder, String file_name) throws IOException {
-        File file = new File(folder, file_name);
-
-        if (file.isDirectory()) {
-            throw new IOException("SELECTED ITEM IS NOT A VALID FILE TO OPEN: " + file.getAbsolutePath());
-        }
-
-        return file;
-    }
-
-    public File openFileDialog(Component component) {
-
-        JFileChooser fileChooser = new JFileChooser();
-        File selectedFile = null;
-
-        fileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
-
-        System.out.println("SELECTING FILE...");
-        int result = fileChooser.showOpenDialog(component);
-
-        if (result == JFileChooser.APPROVE_OPTION) {
-            selectedFile = fileChooser.getSelectedFile();
-            System.out.println("FILE OPENED: " + selectedFile.getName());
-        }
-
-        return selectedFile;
-    }
-
-    public String getContent(File selectedFile) throws IOException {
-
-        StringBuilder content = new StringBuilder();
-
-        try (
-            FileReader fileReader = new FileReader(selectedFile); 
-            BufferedReader bufferedReader = new BufferedReader(fileReader)
-            ) {
-                String line;
-
-                while ((line = bufferedReader.readLine()) != null) {
-                    content.append(line).append('\n');
-                }
-
-            } catch(IOException e) {
-                System.err.println(e.getMessage());
-                throw e;
-            }
-
-        return content.toString();
-    }
-
-    public void loadContent(File file, String content, JTextArea text_area) {
-        text_area.setText(content);
-        System.out.println("CONTENT LOADED: " + file.getAbsolutePath());
-    }
-
-    public void save(File file, String content) throws IOException, FileNotFoundException {
-        if (file == null || !file.isFile()) {
-            throw new IOException("FILE FAILED TO SAVE: " + file.getAbsolutePath());
-        }
-
-        try (
-            FileWriter fileWriter = new FileWriter(file);
-            BufferedWriter bufferedWriter = new BufferedWriter(fileWriter)
-        ) {
-
-            String[] lines = content.split("\n");
-
-            for (String line : lines) {
-                bufferedWriter.write(line);
-                bufferedWriter.newLine();
-            }
-
-            System.out.println("FILE SAVED SUCCESSFULLY: " + file.getAbsolutePath());
-        } catch (IOException e) {
-            System.err.println(e.getMessage());
-            throw e;
-        }
-    }
-
-    public void saveAsDialog(Component component, String content) throws IOException {
-        JFileChooser fileChooser = new JFileChooser();
-        int result = fileChooser.showSaveDialog(component);
-
-        if (result == JFileChooser.APPROVE_OPTION) {
-            File selectedFile = fileChooser.getSelectedFile();
-            
-            try (
-                FileWriter fileWriter = new FileWriter(selectedFile);
-                BufferedWriter bufferedWriter = new BufferedWriter(fileWriter)
-            ) {
-                if (selectedFile != null) {
-                    bufferedWriter.write(content);
-                    System.out.println("FILE SUCCESSFULLY SAVED AS: " + selectedFile.getName());
-                }
-            } catch(IOException err) {
-                System.err.println(err.getMessage());
-                throw err;
-            }
-        }
-    }
-}
-
-public class App {
-    
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> {
-            new TextEditorFrame();
-        });
-    }
 }
