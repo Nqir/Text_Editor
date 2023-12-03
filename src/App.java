@@ -16,7 +16,8 @@ public class App extends JFrame {
         SAVE_AS("SAVE AS"),
         FILE("FILE"),
         OPEN_FOLDER("OPEN FOLDER"),
-        OPEN_FILE("OPEN FILE");
+        OPEN_FILE("OPEN FILE"),
+        TEXT_EDITOR_TITLE("MY TEXT EDITOR");
 
         private final String label;
 
@@ -28,23 +29,26 @@ public class App extends JFrame {
             return label;
         }
     }
-    private String TEXT_EDITOR_TITLE = "My Text Editor";
     private final JPanel panel = new JPanel();
+    private final JPanel sidebarPanel = new JPanel();
+    private final JPanel sidebarContainer = new JPanel();
     private final JToolBar toolbar = new JToolBar();
     private final JPopupMenu popupMenu = new JPopupMenu();
     private final FileHandler fileHandler = new FileHandler();
-    private final JPanel sidebarPanel = new JPanel();
-    private final JPanel sidebarContainer = new JPanel();
-    private final JTextArea text_area = new JTextArea();
     private final JLabel text_editor_title = new JLabel();
+    private final JLabel folderLabel = new JLabel();
+    private final JTextArea text_area = new JTextArea();
+    private boolean isSaveButtonEnabled = false;
+    private boolean isTextModified = false;
     private final JButton file_button = new JButton(LABEL.FILE.getLabel());
     private final JMenuItem save_button = new JMenuItem(LABEL.SAVE.getLabel());
     private final JMenuItem save_as_button = new JMenuItem(LABEL.SAVE_AS.getLabel());
-    private final JMenuItem openFolderMenuItem = new JMenuItem(LABEL.OPEN_FOLDER.getLabel());
-    private final JMenuItem openFileMenuItem = new JMenuItem(LABEL.OPEN_FILE.getLabel());
-    private final JLabel folderLabel = new JLabel();
-    private boolean isSaveButtonEnabled = false;
-    private boolean isTextModified = false;
+    private final JMenuItem openFolder_button = new JMenuItem(LABEL.OPEN_FOLDER.getLabel());
+    private final JMenuItem openFile_button = new JMenuItem(LABEL.OPEN_FILE.getLabel());
+    private final JButton zoomIn_button = new JButton();
+    private final JButton zoomOut_button = new JButton();
+    private final Image zoomIn_icon = setIcon("./icons/zoom-in.png", 15, 15);
+    private final Image zoomOut_icon = setIcon("./icons/zoom-out.png", 15, 15);
     
     public App() {
         renderWindow();
@@ -54,7 +58,7 @@ public class App extends JFrame {
         configureSidebar();
         configureTextArea();
 
-        text_editor_title.setText(TEXT_EDITOR_TITLE);
+        text_editor_title.setText(LABEL.TEXT_EDITOR_TITLE.getLabel());
         text_editor_title.setHorizontalAlignment(JLabel.CENTER);
     }
     
@@ -67,17 +71,29 @@ public class App extends JFrame {
     
     private void addComponentsToFrame() {
         this.add(panel);
+
         panel.setLayout(new BorderLayout());
         panel.add(toolbar, BorderLayout.NORTH);
         panel.add(text_editor_title, BorderLayout.SOUTH);
         panel.add(new JScrollPane(text_area), BorderLayout.CENTER);
+
         toolbar.add(file_button);
+        toolbar.add(zoomIn_button);
+        toolbar.add(zoomOut_button);
     }
 
     private void configureComponents() {
         file_button.setFocusPainted(false);
         save_button.setFocusPainted(false);
+        zoomIn_button.setFocusPainted(false);
+        zoomOut_button.setFocusPainted(false);
+
         save_button.setEnabled(false);
+
+        toolbar.setLayout(new FlowLayout(FlowLayout.LEFT));
+
+        zoomIn_button.setIcon(new ImageIcon(zoomIn_icon));
+        zoomOut_button.setIcon(new ImageIcon(zoomOut_icon));
     }
 
     private void configureSidebar() {
@@ -115,26 +131,9 @@ public class App extends JFrame {
         });
     }
 
-    private void handleSaveButton(File file, String file_name) {
-        save_button.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                if (isTextModified && isSaveButtonEnabled) {
-                    try {
-                        saveContent(file, file_name);
-                        isTextModified = false;
-                        isSaveButtonEnabled = false;
-                    } catch(IOException err) {
-                        System.err.println(err.getMessage());
-                    }
-                }
-            }
-        });
-    }
-
     private void showFileMenu() {
-        popupMenu.add(openFolderMenuItem);
-        popupMenu.add(openFileMenuItem);
+        popupMenu.add(openFolder_button);
+        popupMenu.add(openFile_button);
         popupMenu.add(save_button);
         popupMenu.add(save_as_button);
         popupMenu.show(file_button, 0, file_button.getHeight());
@@ -166,7 +165,6 @@ public class App extends JFrame {
         });
     }
 
-
     private void showOpenFileDialog() {
         File file = fileHandler.openFileDialog(this);
         if (file != null) {
@@ -191,6 +189,29 @@ public class App extends JFrame {
         }
     }
 
+    private void handleSaveButton(File file, String file_name) {
+        save_button.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (isTextModified && isSaveButtonEnabled) {
+                    try {
+                        saveContent(file, file_name);
+                        isTextModified = false;
+                        isSaveButtonEnabled = false;
+                    } catch(IOException err) {
+                        System.err.println(err.getMessage());
+                    }
+                }
+            }
+        });
+    }
+
+    private void handleTextChange() {
+        isTextModified = true;
+        isSaveButtonEnabled = true;
+        save_button.setEnabled(isSaveButtonEnabled);
+    }
+
     private void saveContent(File file, String file_name) throws IOException {
         try {
             fileHandler.save(file, text_area.getText());
@@ -204,17 +225,29 @@ public class App extends JFrame {
         System.out.println("CONTENT LOADED: " + file.getAbsolutePath());
     }
 
-    private void handleTextChange() {
-        isTextModified = true;
-        isSaveButtonEnabled = true;
-        save_button.setEnabled(isSaveButtonEnabled);
+    private Image setIcon(String pathIcon, int width, int height) {
+        ImageIcon icon = new ImageIcon(getClass().getResource(pathIcon));
+        Image resizeIcon = icon.getImage().getScaledInstance(width, height, Image.SCALE_SMOOTH);
+        return resizeIcon;
     }
 
     private void addEventListeners() {
         file_button.addActionListener(event -> showFileMenu());
-        openFileMenuItem.addActionListener(event -> showOpenFileDialog());
-        openFolderMenuItem.addActionListener(event -> showOpenFolderDialog());
+        openFile_button.addActionListener(event -> showOpenFileDialog());
+        openFolder_button.addActionListener(event -> showOpenFolderDialog());
         save_as_button.addActionListener(event -> showSaveAsDialog(text_area.getText()));
+        zoomIn_button.addActionListener(event -> {
+            Font getFont = text_area.getFont();
+            float newSize = getFont.getSize() + 2;
+
+            text_area.setFont(getFont.deriveFont(newSize));
+        });
+        zoomOut_button.addActionListener(event -> {
+            Font getFont = text_area.getFont();
+            float newSize = getFont.getSize() - 2;
+
+            text_area.setFont(getFont.deriveFont(newSize));
+        });
     }
 
 }
