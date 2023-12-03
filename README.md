@@ -1,18 +1,15 @@
-## Getting Started
+# ☕Java - Text Editor
 
-Welcome to the VS Code Java world. Here is a guideline to help you get started to write Java code in Visual Studio Code.
+# 📄Description
+This text editor project is developed using Java Swing for the GUI.
+This provides basic text editing functionalities.
 
-## Folder Structure
+# ✨Features
+- ✔**Text Editing**
+- ✔**File Handling**(Open, Save, Save As)
+- ✔**Zoom:** adjust the font size for better readability.
+- ✔**Sidebar:** select and view files from selected folder.
 
-The workspace contains two folders by default, where:
-
-- `src`: the folder to maintain sources
-- `lib`: the folder to maintain dependencies
-
-Meanwhile, the compiled output files will be generated in the `bin` folder by default.
-
-> If you want to customize the folder structure, open `.vscode/settings.json` and update the related settings there.
-
-## Dependency Management
-
-The `JAVA PROJECTS` view allows you to manage your dependencies. More details can be found [here](https://github.com/microsoft/vscode-java-dependency#manage-dependencies).
+# 🌟Contributing
+Contributions are welcome🤗!
+If you have any ideas, suggestions, or bug reports, please open an issue or submit a pull request.
