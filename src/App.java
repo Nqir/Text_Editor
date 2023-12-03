@@ -75,7 +75,7 @@ public class App extends JFrame {
         panel.setLayout(new BorderLayout());
         panel.add(toolbar, BorderLayout.NORTH);
         panel.add(text_editor_title, BorderLayout.SOUTH);
-        panel.add(new JScrollPane(text_area), BorderLayout.CENTER);
+        panel.add(text_area, BorderLayout.CENTER);
 
         toolbar.add(file_button);
         toolbar.add(zoomIn_button);
@@ -106,13 +106,18 @@ public class App extends JFrame {
     }
     
     private void configureTextArea() {
-        text_area.setPreferredSize(new Dimension(500, 500));
         text_area.setMargin(new Insets(10, 10, 10, 10));
         text_area.setBackground(new Color(34, 34, 34));
         text_area.setLineWrap(true);
         text_area.setWrapStyleWord(true);
         text_area.setForeground(new Color(255, 255, 255));
         text_area.setCaretColor(new Color(255, 255, 255));
+
+        JScrollPane scrollPane = new JScrollPane(text_area);
+        scrollPane.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED);
+        scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_AS_NEEDED);
+
+        panel.add(scrollPane);
         text_area.getDocument().addDocumentListener(new DocumentListener() {
             @Override
             public void insertUpdate(DocumentEvent e) {
@@ -180,12 +185,10 @@ public class App extends JFrame {
     }
 
     private void showSaveAsDialog(String content) {
-        if (isTextModified) {
-            try {
-                fileHandler.saveAsDialog(this, content);
-            } catch (IOException err) {
-                System.err.println(err.getMessage());
-            }
+        try {
+            fileHandler.saveAsDialog(this, content);
+        } catch (IOException err) {
+            System.err.println(err.getMessage());
         }
     }
 
