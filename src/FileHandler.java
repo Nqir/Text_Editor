@@ -73,7 +73,7 @@ public class FileHandler {
 
         return file;
     }
-
+    
     public File openFileDialog(Component component) {
 
         JFileChooser fileChooser = new JFileChooser();
