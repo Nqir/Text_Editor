@@ -47,8 +47,13 @@ public class App extends JFrame {
     private final JMenuItem openFile_button = new JMenuItem(LABEL.OPEN_FILE.getLabel());
     private final JButton zoomIn_button = new JButton();
     private final JButton zoomOut_button = new JButton();
+<<<<<<< HEAD
     private final Image zoomIn_icon = setIcon("./icons/zoom-in.png", 15, 15);
     private final Image zoomOut_icon = setIcon("./icons/zoom-out.png", 15, 15);
+=======
+    private final Image zoomIn_icon = setIcon("./icons/zoom-in-icon.png", 15, 15);
+    private final Image zoomOut_icon = setIcon("./icons/zoom-out-icon.png", 15, 15);
+>>>>>>> fix-commits
     
     public App() {
         renderWindow();
